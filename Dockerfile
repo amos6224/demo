@@ -1,26 +1,22 @@
-FROM ubuntu:14.04
+FROM openjdk:7-jdk
 MAINTAINER Jeff Destine <jdestine@kenzan.com>
 
-RUN apt-get update
-RUN apt-get -y upgrade
-RUN apt-get install -y git
-RUN apt-get install -y openssh-server
-RUN sed -i 's|session    required     pam_loginuid.so|session    optional     pam_loginuid.so|g' /etc/pam.d/sshd
-RUN mkdir -p /var/run/sshd
+ARG MAVEN_VERSION=3.3.9
+ARG USER_HOME_DIR="/root"
 
-RUN apt-get install -y openjdk-7-jdk
+RUN mkdir -p /usr/share/maven /usr/share/maven/ref \
+  && curl -fsSL http://apache.osuosl.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.tar.gz \
+    | tar -xzC /usr/share/maven --strip-components=1 \
+  && ln -s /usr/share/maven/bin/mvn /usr/bin/mvn
 
-RUN adduser --quiet jenkins
-RUN echo "jenkins:jenkins" | chpasswd
+ENV MAVEN_HOME /usr/share/maven
+ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
 
-RUN mkdir /home/jenkins/.m2
+COPY mvn-entrypoint.sh /usr/local/bin/mvn-entrypoint.sh
+COPY pom.xml /usr/share/maven/ref/
 
-ADD pom.xml /home/jenkins/.m2/
+VOLUME "$USER_HOME_DIR/.m2"
 
-RUN chown -R jenkins:jenkins /home/jenkins/.m2/ 
-
-RUN apt-get install -y maven
-EXPOSE 22
-
-CMD ["/usr/sbin/sshd", "-D"]
+ENTRYPOINT ["/usr/local/bin/mvn-entrypoint.sh"]
+CMD ["mvn"]
 
